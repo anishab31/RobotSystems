@@ -5,7 +5,7 @@
  1. git clone repo to home directory
  2. Run setup shell script
     ```
-    cd ~/RobotSystems/armProject/setup.sh
+    cd ~/RobotSystems/FinalProject/setup.sh
     ```
  4. Wait for it to beep to reset everything
  3. Call the parrot service to start
