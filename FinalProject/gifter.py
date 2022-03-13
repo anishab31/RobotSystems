@@ -27,8 +27,7 @@ from armpi_fpv import Misc
 from armpi_fpv import apriltag
 from armpi_fpv import bus_servo_control
 
-# 分捡
-# 如未声明，使用的长度，距离单位均为m
+
 d_tag_map = 0
 
 tag_z_min = 0.01
@@ -48,10 +47,9 @@ __isRunning = False
 lock = threading.RLock()
 ik = ik_transform.ArmIK()
 
-# 阈值
+
 conf_threshold = 0.6
 
-# 模型位置
 modelFile = "/home/ubuntu/armpi_fpv/src/face_detect/scripts/models/res10_300x300_ssd_iter_140000_fp16.caffemodel"
 configFile = "/home/ubuntu/armpi_fpv/src/face_detect/scripts/models/deploy.prototxt"
 net = cv2.dnn.readNetFromCaffe(configFile, modelFile)
@@ -77,14 +75,13 @@ range_rgb = {
     'white': (255, 255, 255),
 }
 
-# 找出面积最大的轮廓和对应面积
-# 参数为要比较的轮廓的列表
+
 def getAreaMaxContour(contours):
     contour_area_temp = 0
     contour_area_max = 0
     area_max_contour = None
 
-    for c in contours:  # 历遍所有轮廓
+    for c in contours:  
         contour_area_temp = math.fabs(cv2.contourArea(c))  # 计算轮廓面积
         if contour_area_temp > contour_area_max:
             contour_area_max = contour_area_temp
@@ -93,14 +90,14 @@ def getAreaMaxContour(contours):
 
     return area_max_contour, contour_area_max  # 返回最大的轮廓
 
-# 初始位置
+
 def initMove(delay=True):
     with lock:
         bus_servo_control.set_servos(joints_pub, 1500, ((1, 75), (2, 500), (3, 80), (4, 825), (5, 625), (6, 500)))
     if delay:
         rospy.sleep(2) 
  
-# 关闭rgb
+
 def turn_off_rgb():
     led = Led()
     led.index = 0
@@ -147,7 +144,7 @@ count_d = 0
 count_timeout = 0
 count_tag_timeout = 0
 count_adjust_timeout = 0
-# 变量重置
+
 def reset():
     global X, Y
     global adjust    
@@ -223,7 +220,7 @@ color_range = None
 def load_lab_config():
     global color_range
     
-    # 获取lab参数
+   
     color_range = rospy.get_param('/lab_config_manager/color_range_list', {})  # get lab range from ros param server
 
 def load_config():
@@ -255,7 +252,7 @@ def load_config():
 
         center_x = config['center_x']
 
-# app初始化调用
+
 def init():
     global stop_state
     global __target_data
@@ -271,10 +268,10 @@ def init():
 y_d = 0
 roll_angle = 0
 gripper_rotation = 0
-# 木块对角长度一半
+
 square_diagonal = 0.03*math.sin(math.pi/4)
 F = 1000/240.0
-# 夹取
+
 def pick(grasps, have_adjust=False):
     global roll_angle, last_x_dis
     global adjust, x_dis, y_dis, tag_x_dis, tag_y_dis, adjust_error, gripper_rotation
@@ -284,7 +281,7 @@ def pick(grasps, have_adjust=False):
     approach = grasps.grasp_approach
     retreat = grasps.grasp_retreat
      
-    # 计算是否能够到达目标位置，如果不能够到达，返回False
+
     target1 = ik.setPitchRanges((position.x + approach.x, position.y + approach.y, position.z + approach.z), rotation.r, -180, 0)
     target2 = ik.setPitchRanges((position.x, position.y, position.z), rotation.r, -180, 0)
     target3 = ik.setPitchRanges((position.x, position.y, position.z + grasps.up), rotation.r, -180, 0)
@@ -300,7 +297,6 @@ def pick(grasps, have_adjust=False):
             if not __isRunning:
                 return False
             
-            # 第三步：移到目标点
             servo_data = target2[1]
             bus_servo_control.set_servos(joints_pub, 1500, ((3, servo_data['servo3']), (4, servo_data['servo4']), (5, servo_data['servo5'])))
             rospy.sleep(2)
@@ -317,14 +313,14 @@ def pick(grasps, have_adjust=False):
             y_dis = tag_y_dis =0
             
             if state == 'color':
-                # 第四步：微调整位置
+                
                 if not adjust:
                     adjust = True
                     return True
             else:
                 return True
         else:
-            # 第五步: 对齐
+ 
             bus_servo_control.set_servos(joints_pub, 500, ((2, 500 + int(F*gripper_rotation)), ))
             rospy.sleep(0.8)
             if not __isRunning:
@@ -332,8 +328,7 @@ def pick(grasps, have_adjust=False):
                 bus_servo_control.set_servos(joints_pub, 1000, ((1, 200), (3, servo_data['servo3']), (4, servo_data['servo4']), (5, servo_data['servo5'])))       
                 rospy.sleep(1)             
                 return False
-            
-            # 第六步：夹取
+    
             bus_servo_control.set_servos(joints_pub, 500, ((1, grasps.grasp_posture - 80), ))               
             rospy.sleep(0.6)
             bus_servo_control.set_servos(joints_pub, 500, ((1, grasps.grasp_posture), ))               
@@ -346,7 +341,7 @@ def pick(grasps, have_adjust=False):
                 rospy.sleep(1)             
                 return False
             
-            # 第七步：抬升物体
+            
             if grasps.up != 0:
                 servo_data = target3[1]
                 bus_servo_control.set_servos(joints_pub, 500, ((3, servo_data['servo3']), (4, servo_data['servo4']), (5, servo_data['servo5'])))
@@ -359,7 +354,7 @@ def pick(grasps, have_adjust=False):
                 rospy.sleep(1)             
                 return False
             
-            # 第八步：移到撤离点
+           
             servo_data = target4[1]
             if servo_data != target3[1]:    
                 bus_servo_control.set_servos(joints_pub, 1000, ((3, servo_data['servo3']), (4, servo_data['servo4']), (5, servo_data['servo5'])))        
@@ -369,7 +364,7 @@ def pick(grasps, have_adjust=False):
                     rospy.sleep(0.5)                
                     return False
                 
-            # 第九步：移到稳定点
+          
             servo_data = target1[1]
             bus_servo_control.set_servos(joints_pub, 1500, ((2, 500), (3, 80), (4, 825), (5, 625)))
             rospy.sleep(1.5)
@@ -394,6 +389,8 @@ place_position = {'red':  [-0.18,  0.057,   0.01],
 ###################################################
 
 grasps = Grasp()
+
+#move function
 def move():
     global y_d
     global grasps
@@ -401,9 +398,9 @@ def move():
     global x_adjust
     global move_state  
     global __haveCube
-    global __startSearch
+    global __startSearch  #starts searching motion to find face
     global have_move
-    global start_greet
+    global start_greet  #expressive gripper motion when face is found
     global action_finish 
     global d_pulse, servo6_pulse   
     
@@ -414,27 +411,26 @@ def move():
                 approach = True
                 
                 if not adjust and move_state == 1:
-                    # 夹取的位置
+                 
                     grasps.grasp_pos.position.x = X
                     grasps.grasp_pos.position.y = Y
                     if state == 'color':
                         grasps.grasp_pos.position.z = Misc.map(Y - 0.15, 0, 0.15, color_z_min, color_z_max)
                     else:
                         grasps.grasp_pos.position.z = Misc.map(Y - 0.12, 0, 0.15, tag_z_min, tag_z_max)
-                    # 夹取时的俯仰角
+                    
                     grasps.grasp_pos.rotation.r = -175
                     
-                    # 夹取后抬升的距离
+                   
                     grasps.up = 0
                     
-                    # 夹取时靠近的方向和距离
+                   
                     grasps.grasp_approach.y = -0.01
                     grasps.grasp_approach.z = 0.02
                     
-                    # 夹取后后撤的方向和距离
+                   
                     grasps.grasp_retreat.z = 0.04
                     
-                    # 夹取前后夹持器的开合
                     grasps.grasp_posture = 450
                     grasps.pre_grasp_posture = 75
                     buzzer_pub.publish(0.1)
@@ -548,7 +544,7 @@ def apriltagDetect(img):
             elif tag_id == 3:
                 tag3 = ['tag3', object_center_x, object_center_y, object_angle]
 
-# 获取roi，防止干扰
+
 def getROI(rotation_angle):
     rotate1 = cv2.getRotationMatrix2D((rows*0.5, cols*0.5), int(rotation_angle), 1)
     rotate_rotate1 = cv2.warpAffine(mask2, rotate1, (cols, rows))
@@ -567,7 +563,8 @@ last_y = 0
 state = None
 x_adjust = 0
 pick_color = ''
-# 颜色夹取策略
+
+#finds and picks up colored cube
 def color_sort(img, target):
     global X, Y
     global count
@@ -602,28 +599,28 @@ def color_sort(img, target):
         if i in target:
             if i in detect_color:
                 target_color_range = color_range[i]                
-                frame_mask1 = cv2.inRange(frame_lab, tuple(target_color_range['min']), tuple(target_color_range['max']))  # 对原图像和掩模进行位运算
+                frame_mask1 = cv2.inRange(frame_lab, tuple(target_color_range['min']), tuple(target_color_range['max']))  
                 #mask = cv2.bitwise_and(roi, frame_gray)
                 frame_mask2 = cv2.bitwise_and(roi, frame_mask1)
-                eroded = cv2.erode(frame_mask2, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))  #腐蚀
-                dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))) #膨胀
+                eroded = cv2.erode(frame_mask2, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))  
+                dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))) 
                 #cv2.imshow('mask', dilated)
                 #cv2.waitKey(1)
-                contours = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2]  # 找出轮廓
+                contours = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2]  
                 areaMaxContour, area_max = getAreaMaxContour(contours)  # 找出最大轮廓
                 if areaMaxContour is not None:
                     if area_max > max_area and area_max > 100:#找最大面积
                         max_area = area_max
                         color_area_max = i
                         areaMaxContour_max = areaMaxContour
-    if max_area > 100:  # 有找到最大面积
+    if max_area > 100:  
         rect = cv2.minAreaRect(areaMaxContour_max)
         box_rotation_angle = rect[2]
         if box_rotation_angle > 45:
             box_rotation_angle =  box_rotation_angle - 90        
         
         box = np.int0(cv2.boxPoints(rect))   
-        for j in range(4): # 映射到原图大小
+        for j in range(4): 
             box[j, 0] = int(Misc.map(box[j, 0], 0, size[0], 0, img_w))
             box[j, 1] = int(Misc.map(box[j, 1], 0, size[1], 0, img_h))
         
@@ -650,7 +647,7 @@ def color_sort(img, target):
                 rgb_pub.publish(led)
                 rospy.sleep(0.1)
                 
-                # 位置映射
+                
                 if 298 + d_color_map < centerY <= 424 + d_color_map:
                     Y = Misc.map(centerY, 298 + d_color_map, 424 + d_color_map, 0.12, 0.12 - 0.04)
                 elif 198 + d_color_map < centerY <= 298 + d_color_map:
@@ -670,10 +667,10 @@ def color_sort(img, target):
         last_y = centerY
         if (not approach or adjust) and start_move: # pid调节           
             detect_color = (color_area_max, )            
-            x_pid.SetPoint = center_x #设定           
-            x_pid.update(centerX) #当前
+            x_pid.SetPoint = center_x          
+            x_pid.update(centerX) 
             dx = x_pid.output
-            x_dis += dx #输出  
+            x_dis += dx 
             
             x_dis = 0 if x_dis < 0 else x_dis          
             x_dis = 1000 if x_dis > 1000 else x_dis
@@ -792,7 +789,7 @@ def tag_sort(img, target):
                     adjust = False
                 else:
                     current_tag = target[0]
-                    # 位置映射
+                    
                     if tag_map[1] + d_tag_map < centerY <= tag_map[0] + d_tag_map:
                         Y = Misc.map(centerY, tag_map[1] + d_tag_map, tag_map[0] + d_tag_map, 0.12 + d_map, 0.12) - 0.005
                     elif tag_map[2] + d_tag_map < centerY <= tag_map[1] + d_tag_map:
@@ -835,7 +832,7 @@ def tag_sort(img, target):
         
     return img
 
-
+#face detection after picking up cube
 def find_face(img):
     global frame_pass
     global start_greet
@@ -854,11 +851,11 @@ def find_face(img):
 
     blob = cv2.dnn.blobFromImage(img_copy, 1, (150, 150), [104, 117, 123], False, False)
     net.setInput(blob)
-    detections = net.forward() #计算识别
+    detections = net.forward() 
     for i in range(detections.shape[2]):
         confidence = detections[0, 0, i, 2]
         if confidence > conf_threshold:
-            #识别到的人了的各个坐标转换会未缩放前的坐标
+           
             x1 = int(detections[0, 0, i, 3] * img_w)
             y1 = int(detections[0, 0, i, 4] * img_h)
             x2 = int(detections[0, 0, i, 5] * img_w)
@@ -880,7 +877,7 @@ def run(img):
         if len(__target_data[1]) != 0:
             apriltagDetect(img) # apriltag检测
             
-        # 选取策略，优先tag, 夹取超时处理
+        
         if 'tag1' in __target_data[1] and 'tag1' in current_tag:
             if tag1[1] != -1:
                 count_adjust_timeout = 0
@@ -1053,25 +1050,25 @@ def heartbeat_srv_cb(msg):
     return rsp
 
 if __name__ == '__main__':
-    # 初始化节点
+   
     rospy.init_node('gifter', log_level=rospy.DEBUG)
 
-    # 舵机发布
+    
     joints_pub = rospy.Publisher('/servo_controllers/port_id_1/multi_id_pos_dur', MultiRawIdPosDur, queue_size=1)
 
-    # 图像发布
+ 
     image_pub = rospy.Publisher('/gifter/image_result', Image, queue_size=1)  # register result image publisher
     
-    # app通信服务
+
     enter_srv = rospy.Service('/gifter/enter', Trigger, enter_func)
     exit_srv = rospy.Service('/gifter/exit', Trigger, exit_func)
     running_srv = rospy.Service('/gifter/set_running', SetBool, set_running)
     set_target_srv = rospy.Service('/gifter/set_target', SetTarget, set_target)
     heartbeat_srv = rospy.Service('/gifter/heartbeat', SetBool, heartbeat_srv_cb)
     
-    # 蜂鸣器
+   
     buzzer_pub = rospy.Publisher('/sensor/buzzer', Float32, queue_size=1)
-    # rgb 灯
+
     rgb_pub = rospy.Publisher('/sensor/rgb_led', Led, queue_size=1)
 
     debug = False
